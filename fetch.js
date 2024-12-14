@@ -6,6 +6,7 @@ import chalk from 'chalk';
 import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const cacheDir = path.join(__dirname, '.course_cache');
+let split = true;
 let linkCache = [];
 let titleCache = [];
 if (fs.existsSync(path.join(cacheDir, 'titleCache.json'))) {
@@ -14,8 +15,17 @@ if (fs.existsSync(path.join(cacheDir, 'titleCache.json'))) {
 if (fs.existsSync(path.join(cacheDir, 'linkCache.json'))) {
     linkCache = JSON.parse(fs.readFileSync(path.join(cacheDir, 'linkCache.json'), 'utf-8'));
 }
-const userConfig = JSON.parse(fs.readFileSync(path.join(cacheDir, 'userConfig.json'), 'utf-8'));
-const { username, password } = userConfig;
+if (!fs.existsSync(path.join(cacheDir, 'location.json'))) {
+    fs.writeFileSync(path.join(cacheDir, 'location.json'), JSON.stringify({ location: path.join(__dirname, 'courses-fetched') }, null, 4));
+}
+if (fs.existsSync(path.join(cacheDir, 'userConfig.json'))) {
+    split = JSON.parse(fs.readFileSync(path.join(cacheDir, 'userConfig.json'))).split
+}
+
+const sourceDir = JSON.parse(fs.readFileSync(path.join(cacheDir, 'location.json'), 'utf-8')).location;
+
+const userAccount = JSON.parse(fs.readFileSync(path.join(cacheDir, 'userAccount.json'), 'utf-8'));
+const { username, password } = userAccount;
 
 let courses = JSON.parse(fs.readFileSync(path.join(cacheDir, 'courseConfig.json'), 'utf-8'));
 
@@ -49,7 +59,6 @@ let courses = JSON.parse(fs.readFileSync(path.join(cacheDir, 'courseConfig.json'
     const cookies = await page.cookies();
     const cookieString = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
 
-    const sourceDir = path.join(__dirname, 'courses-fetched');
     if (!fs.existsSync(sourceDir)) {
         fs.mkdirSync(sourceDir);
     }
@@ -110,7 +119,8 @@ let courses = JSON.parse(fs.readFileSync(path.join(cacheDir, 'courseConfig.json'
 
             let hasNextPage = true;
             while (hasNextPage) {
-                await coursePage.waitForSelector('.footer-bd', { timeout: 5000 });
+                await coursePage.waitForSelector('.list-pager', { timeout: 5000 });
+                console.log(chalk.blue(`Courseware page loaded.`));
                 const downloadLinks = await coursePage.evaluate((linkCache) => {
                     const downloadElements = document.querySelectorAll('a[original-title="下载"]');
                     const links = Array.from(new Set(Array.from(downloadElements).map(el => el.href)));
@@ -132,9 +142,13 @@ let courses = JSON.parse(fs.readFileSync(path.join(cacheDir, 'courseConfig.json'
                 if (!fs.existsSync(courseDir)) {
                     fs.mkdirSync(courseDir);
                 }
-                const coursewareDir = path.join(courseDir, 'courseware');
-                if (!fs.existsSync(coursewareDir)) {
-                    fs.mkdirSync(coursewareDir);
+
+                let coursewareDir = courseDir;
+                if (split) {
+                    coursewareDir = path.join(courseDir, 'courseware');
+                    if (!fs.existsSync(coursewareDir)) {
+                        fs.mkdirSync(coursewareDir);
+                    }
                 }
 
                 await Promise.all(downloadLinks.map(link => downloadFile(link, coursewareDir, cookieString)));
@@ -169,7 +183,7 @@ let courses = JSON.parse(fs.readFileSync(path.join(cacheDir, 'courseConfig.json'
     const downloadHomework = async (course, semesterDir) => {
         const coursePage = await browser.newPage();
         await coursePage.goto(course.link + 'homework', { waitUntil: 'networkidle2' });
-        await coursePage.waitForSelector('.footer', { timeout: 5000 });
+        await coursePage.waitForSelector('div.filter.ng-scope', { timeout: 10000 });
         console.log(chalk.blue(`Homework <${course.name}>`));
         // 获取所有作业的链接
         let homeworkTitles = await coursePage.evaluate(() => {
@@ -191,7 +205,7 @@ let courses = JSON.parse(fs.readFileSync(path.join(cacheDir, 'courseConfig.json'
                 console.log(chalk.blue(`Homework <${course.name}> - ${homeworkTitle}`));
                 const homeworkPage = await browser.newPage();
                 await homeworkPage.goto(course.link + 'homework', { waitUntil: 'networkidle2' });
-                await homeworkPage.waitForSelector('.footer', { timeout: 5000 });
+                await homeworkPage.waitForSelector('div.filter.ng-scope', { timeout: 10000 });
                 // 点击作业链接
                 await homeworkPage.evaluate((title) => {
                     const element = Array.from(document.querySelectorAll('span.shorten-title.ng-binding')).find(el => el.getAttribute('original-title') === title);
@@ -204,7 +218,7 @@ let courses = JSON.parse(fs.readFileSync(path.join(cacheDir, 'courseConfig.json'
                 await homeworkPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 });
 
                 // 确保页面加载完成
-                await homeworkPage.waitForSelector('.footer', { timeout: 10000 });
+                await homeworkPage.waitForSelector('div.activity-attributes-section.section.homework-activity', { timeout: 10000 });
                 console.log(chalk.blue(`Homework page ${homeworkTitle} loaded.`));
                 // 获取下载链接
                 const downloadLinks = await homeworkPage.evaluate((linkCache) => {
@@ -223,9 +237,12 @@ let courses = JSON.parse(fs.readFileSync(path.join(cacheDir, 'courseConfig.json'
                 if (!fs.existsSync(courseDir)) {
                     fs.mkdirSync(courseDir);
                 }
-                const homeworkDir = path.join(courseDir, 'homework');
-                if (!fs.existsSync(homeworkDir)) {
-                    fs.mkdirSync(homeworkDir);
+                let homeworkDir = courseDir;
+                if (split) {
+                    homeworkDir = path.join(courseDir, 'homework');
+                    if (!fs.existsSync(homeworkDir)) {
+                        fs.mkdirSync(homeworkDir);
+                    }
                 }
                 downloadLinks.forEach(link => {
                     if (!linkCache.includes(link)) {

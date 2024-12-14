@@ -4,9 +4,9 @@ import path from 'path';
 import chalk from 'chalk'
 import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const userConfigDir =   path.join(__dirname, '.course_cache','userConfig.json');
-const userConfig = JSON.parse(fs.readFileSync(userConfigDir, 'utf-8'));
-const { username, password } = userConfig;
+const userAccountDir =   path.join(__dirname, '.course_cache','userAccount.json');
+const userAccount = JSON.parse(fs.readFileSync(userAccountDir, 'utf-8'));
+const { username, password } = userAccount;
 const cacheDir = path.join(__dirname, '.course_cache');
 const cacheFile = path.join(cacheDir, 'courses.json');
 (async () => {

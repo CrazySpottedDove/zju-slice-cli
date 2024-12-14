@@ -33,7 +33,6 @@ async function config() {
     ]);
 
     const selectedSemesters = semesterAnswers.selectedSemesters;
-    console.log(`你选择了学期: ${selectedSemesters.join(', ')}`);
 
     const config = {};
     for (const semester of selectedSemesters) {
@@ -51,7 +50,6 @@ async function config() {
         ]);
 
         const selectedCourseNames = courseAnswers.selectedCourses;
-        console.log(`你选择了 ${semester} 学期的课程: ${selectedCourseNames.join(', ')}`);
 
         // 将用户的选择按学期分类，并写入 {name, link}
         config[semester] = selectedCourseNames.map(courseName => {
