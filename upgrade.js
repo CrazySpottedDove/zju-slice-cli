@@ -2,7 +2,8 @@ import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk'
-const __dirname = path.resolve();
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const userConfigDir =   path.join(__dirname, '.course_cache','userConfig.json');
 const userConfig = JSON.parse(fs.readFileSync(userConfigDir, 'utf-8'));
 const { username, password } = userConfig;

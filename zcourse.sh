@@ -13,31 +13,29 @@ show_help() {
 
 upgrade_courses() {
     echo "更新课程信息..."
-    node upgrade.js
+    node "$(dirname "$(readlink -f "$0")")/upgrade.js"
 }
 
 fetch_resources() {
     echo "拉取课程资源..."
-    node fetch.js
+    node "$(dirname "$(readlink -f "$0")")/fetch.js"
 }
 
 config_courses() {
     echo "选择需要获取的课程..."
-    node config.js
+    node "$(dirname "$(readlink -f "$0")")/config.js"
 }
 
 init(){
     echo "获取用户信息..."
-    node initUser.js
-    echo "更新课程信息..."
-    node upgrade.js
-    echo "选择需要获取的课程..."
-    node config.js
+    node "$(dirname "$(readlink -f "$0")")/initUser.js"
+    upgrade_courses
+    config_courses
 }
 
 clear_cache(){
-    rm -f ./.course_cache/linkCache.json
-    rm -f ./.course_cache/titleCache.json
+    rm -f "$(dirname "$(readlink -f "$0")")/.course_cache/linkCache.json"
+    rm -f "$(dirname "$(readlink -f "$0")")/.course_cache/titleCache.json"
 }
 
 if [ $# -eq 0 ]; then

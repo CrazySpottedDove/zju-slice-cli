@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import inquirer from 'inquirer';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const __dirname = path.resolve();
 const cacheDir = path.join(__dirname, '.course_cache');
 const userConfigFile = path.join(cacheDir, 'userConfig.json');
 

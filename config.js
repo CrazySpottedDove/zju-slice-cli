@@ -2,15 +2,17 @@ import fs from 'fs';
 import path from 'path';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
-
-const __dirname = path.resolve();
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// const __dirname = path.resolve();
 const cacheDir = path.join(__dirname, '.course_cache');
+console.log(__dirname)
 const cacheFile = path.join(cacheDir, 'courses.json');
 const configFile = path.join(cacheDir, 'courseConfig.json');
 
 async function config() {
     if (!fs.existsSync(cacheFile)) {
-        console.log('No cache found. Please run the crawler to fetch courses first.');
+        console.log('No cache found. Please run zcourse --upgrade first.');
         return;
     }
 
