@@ -1,67 +1,22 @@
-import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
 import fetch from 'node-fetch';
 import chalk from 'chalk';
-import { fileURLToPath } from 'url';
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const cacheDir = path.join(__dirname, '.course_cache');
-let split = true;
-let linkCache = [];
-let titleCache = [];
-if (fs.existsSync(path.join(cacheDir, 'titleCache.json'))) {
-    titleCache = JSON.parse(fs.readFileSync(path.join(cacheDir, 'titleCache.json'), 'utf-8'));
-}
-if (fs.existsSync(path.join(cacheDir, 'linkCache.json'))) {
-    linkCache = JSON.parse(fs.readFileSync(path.join(cacheDir, 'linkCache.json'), 'utf-8'));
-}
-if (!fs.existsSync(path.join(cacheDir, 'location.json'))) {
-    fs.writeFileSync(path.join(cacheDir, 'location.json'), JSON.stringify({ location: path.join(__dirname, 'courses-fetched') }, null, 4));
-}
-if (fs.existsSync(path.join(cacheDir, 'userConfig.json'))) {
-    split = JSON.parse(fs.readFileSync(path.join(cacheDir, 'userConfig.json'))).split
-}
 
-const sourceDir = JSON.parse(fs.readFileSync(path.join(cacheDir, 'location.json'), 'utf-8')).location;
+import { readAllConfigs, cacheDir } from './share/reader.js';
+import { login } from './share/login.js';
+let { coursesDir, split, courseConfig, linkCache, titleCache } = readAllConfigs();
 
-const userAccount = JSON.parse(fs.readFileSync(path.join(cacheDir, 'userAccount.json'), 'utf-8'));
-const { username, password } = userAccount;
-
-let courses = JSON.parse(fs.readFileSync(path.join(cacheDir, 'courseConfig.json'), 'utf-8'));
 
 (async () => {
-    const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-    const page = await browser.newPage();
-    const loginUrl = "https://zjuam.zju.edu.cn/cas/login?service=https%3A%2F%2Fidentity.zju.edu.cn%2Fauth%2Frealms%2Fzju%2Fbroker%2Fcas-client%2Fendpoint?state%3DEWAcKAP4o8PN5h3-2wqi2rldugynbh_l1kgAT_Z9QwQ.3OZB_d7BIU8.TronClass#/";
+    const { page, browser } = await login();
 
-    console.log(chalk.blue('Logging in...'));
-
-    await page.goto(loginUrl);
-
-    // 模拟输入用户名和密码
-    await page.type('#username', username);
-    await page.type('#password', password);
-
-    // 模拟点击登录按钮
-    await page.click('#dl');
-
-    // 等待导航完成
-    await page.waitForNavigation();
-
-    console.log(chalk.green('Login has succeeded!'));
     const pageUrl = `https://courses.zju.edu.cn/user/courses#/?pageIndex=1`;
     await page.goto(pageUrl, { waitUntil: 'networkidle2' });
 
     // 获取当前页面的 Cookie
     const cookies = await page.cookies();
     const cookieString = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
-
-    if (!fs.existsSync(sourceDir)) {
-        fs.mkdirSync(sourceDir);
-    }
 
     // 接受资源链接，完成下载任务
     const downloadFile = async (link, courseDir, cookieString) => {
@@ -124,17 +79,14 @@ let courses = JSON.parse(fs.readFileSync(path.join(cacheDir, 'courseConfig.json'
                 const downloadLinks = await coursePage.evaluate((linkCache) => {
                     const downloadElements = document.querySelectorAll('a[original-title="下载"]');
                     const links = Array.from(new Set(Array.from(downloadElements).map(el => el.href)));
-                    let result = [];
-                    links.forEach(link => {
-                        if (!linkCache.includes(link)) {
-                            result.push(link);
-                        }
-                    })
-                    return result;
+
+                    return links;
                 }, linkCache);
+                let newDownloadLinks = [];
                 downloadLinks.forEach(link => {
                     if (!linkCache.includes(link)) {
                         linkCache.push(link);
+                        newDownloadLinks.push(link);
                     }
                 })
                 // 创建课程目录
@@ -151,7 +103,7 @@ let courses = JSON.parse(fs.readFileSync(path.join(cacheDir, 'courseConfig.json'
                     }
                 }
 
-                await Promise.all(downloadLinks.map(link => downloadFile(link, coursewareDir, cookieString)));
+                await Promise.all(newDownloadLinks.map(link => downloadFile(link, coursewareDir, cookieString)));
 
                 hasNextPage = await coursePage.evaluate(() => {
                     const nextPageButton = document.querySelector('li.next-page-button a.pager-button[ng-click="changePage(pageIndex+1)"]');
@@ -185,7 +137,7 @@ let courses = JSON.parse(fs.readFileSync(path.join(cacheDir, 'courseConfig.json'
         await coursePage.goto(course.link + 'homework', { waitUntil: 'networkidle2' });
         await coursePage.waitForSelector('div.filter.ng-scope', { timeout: 10000 });
         console.log(chalk.blue(`Homework <${course.name}>`));
-        // 获取所有作业的链接
+        // 获取所有作业的title
         let homeworkTitles = await coursePage.evaluate(() => {
             const homeworkElements = document.querySelectorAll('span.shorten-title.ng-binding');
             return Array.from(homeworkElements).map(homeworkElement => {
@@ -221,35 +173,35 @@ let courses = JSON.parse(fs.readFileSync(path.join(cacheDir, 'courseConfig.json'
                 await homeworkPage.waitForSelector('div.activity-attributes-section.section.homework-activity', { timeout: 10000 });
                 console.log(chalk.blue(`Homework page ${homeworkTitle} loaded.`));
                 // 获取下载链接
-                const downloadLinks = await homeworkPage.evaluate((linkCache) => {
+                const downloadLinks = await homeworkPage.evaluate(() => {
                     const downloadElements = document.querySelectorAll('a[original-title="下载"]');
                     const links = Array.from(new Set(Array.from(downloadElements).map(el => el.href)));
-                    let result = [];
-                    links.forEach(link => {
-                        if (!linkCache.includes(link)) {
-                            result.push(link);
-                        }
-                    })
-                    return result;
-                }, linkCache);
+                    return links;
+                });
 
                 const courseDir = path.join(semesterDir, course.name);
                 if (!fs.existsSync(courseDir)) {
                     fs.mkdirSync(courseDir);
                 }
+
                 let homeworkDir = courseDir;
+
                 if (split) {
                     homeworkDir = path.join(courseDir, 'homework');
                     if (!fs.existsSync(homeworkDir)) {
                         fs.mkdirSync(homeworkDir);
                     }
                 }
+                let newDownloadLinks = [];
+
                 downloadLinks.forEach(link => {
                     if (!linkCache.includes(link)) {
                         linkCache.push(link);
+                        newDownloadLinks.push(link);
                     }
                 })
-                await Promise.all(downloadLinks.map(link => downloadFile(link, homeworkDir, cookieString)));
+
+                await Promise.all(newDownloadLinks.map(link => downloadFile(link, homeworkDir, cookieString)));
 
                 // 关闭新页面
                 await homeworkPage.close();
@@ -263,12 +215,12 @@ let courses = JSON.parse(fs.readFileSync(path.join(cacheDir, 'courseConfig.json'
     };
 
     const downloadAllCourses = async () => {
-        for (const semester of Object.keys(courses)) {
-            const semesterDir = path.join(sourceDir, semester);
+        for (const semester of Object.keys(courseConfig)) {
+            const semesterDir = path.join(coursesDir, semester);
             if (!fs.existsSync(semesterDir)) {
                 fs.mkdirSync(semesterDir);
             }
-            for (const course of courses[semester]) {
+            for (const course of courseConfig[semester]) {
                 await downloadCourseMaterials(course, semesterDir);
                 await downloadHomework(course, semesterDir);
             }

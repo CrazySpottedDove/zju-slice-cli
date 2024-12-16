@@ -1,10 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import inquirer from 'inquirer';
-import { fileURLToPath } from 'url';
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { cacheDir } from './share/reader.js';
 
-const cacheDir = path.join(__dirname, '.course_cache');
 const userAccountFile = path.join(cacheDir, 'userAccount.json');
 
 async function inituserAccount() {
@@ -21,11 +19,6 @@ async function inituserAccount() {
             message: '请输入密码:'
         }
     ]);
-
-    // 确保缓存目录存在
-    if (!fs.existsSync(cacheDir)) {
-        fs.mkdirSync(cacheDir);
-    }
 
     // 将用户输入的用户名和密码存储在 userAccount.json 文件中
     fs.writeFileSync(userAccountFile, JSON.stringify(answers, null, 2));

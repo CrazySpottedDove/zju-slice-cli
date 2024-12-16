@@ -3,14 +3,14 @@
 show_help() {
     echo "Usage: zcourse.sh [OPTION]"
     echo "Options:"
-    echo "  --help           显示帮助信息"
-    echo "  --upgrade        获取课程信息并写入 .course_cache（config的先决条件，建议每学期运行一次）"
-    echo "  --fetch          根据 courseConfig.json 登录并拉取对应资源。通常作为最后一步。在使用 --config 后就可以只使用这个命令拉取资源。"
-    echo "  --course-config  调用 configCourse.js 来选择你需要的课程"
-    echo "  --init           初始化用户信息"
-    echo "  --clean-cache    清理缓存"
-    echo "  --locate         修改保存路径"
-    echo "  --user-config    配置用户默认项"
+    echo "  --help | -h           显示帮助信息"
+    echo "  --upgrade | -up       获取课程信息并写入 .course_cache（config的先决条件，建议每学期运行一次）"
+    echo "  --fetch | -f         根据 courseConfig.json 登录并拉取对应资源。通常作为最后一步。在使用 --config 后就可以只使用这个命令拉取资源。"
+    echo "  --course-config | -c 调用 configCourse.js 来选择你需要的课程"
+    echo "  --init | -i          初始化用户信息"
+    echo "  --clean-cache | -clean   清理缓存"
+    echo "  --locate | -l        修改保存路径"
+    echo "  --user-config | -u    配置用户默认项，如保存时是否区分课件与作业"
 }
 
 upgrade_courses() {
@@ -20,7 +20,18 @@ upgrade_courses() {
 
 fetch_resources() {
     echo "拉取课程资源..."
-    node "$(dirname "$(readlink -f "$0")")/fetch.js"
+    # node "$(dirname "$(readlink -f "$0")")/fetch.js"
+    local userConfigFile
+    userConfigFile="$(dirname "$(readlink -f "$0")")/.course_cache/userConfig.json"
+    local background
+    background=$(jq -r '.background' "$userConfigFile")
+
+    if [ "$background" = "true" ]; then
+        node "$(dirname "$(readlink -f "$0")")/fetch.js" > /dev/null 2>&1 &
+        echo "fetch.js 已在后台运行"
+    else
+        node "$(dirname "$(readlink -f "$0")")/fetch.js"
+    fi
 }
 
 config_course() {
@@ -57,28 +68,28 @@ if [ $# -eq 0 ]; then
 fi
 
 case "$1" in
-    --help)
+    --help|-h)
         show_help
         ;;
-    --upgrade)
+    --upgrade|-up)
         upgrade_courses
         ;;
-    --fetch)
+    --fetch|-f)
         fetch_resources
         ;;
-    --course-config)
+    --course-config|-c)
         config_course
         ;;
-    --init)
+    --init|-i)
         init
         ;;
-    --clean-cache)
+    --clean-cache|-clean)
         clean_cache
         ;;
-    --locate)
+    --locate|-l)
         locate
         ;;
-    --user-config)
+    --user-config|-u)
         config_user
         ;;
     *)
@@ -87,3 +98,4 @@ case "$1" in
         exit 1
         ;;
 esac
+exit 0

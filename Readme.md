@@ -6,10 +6,13 @@
 
 ## install
 
+* linux
+
 ```bash
 # path=whatever path you'd like to install it
 cd path
 git clone https://github.com/CrazySpottedDove/zju-slice-cli.git
+cd zju-slice-cli
 npm install
 chmod +x ./zcourse.sh
 sudo ln -s path/zju-slice-cli/zcourse.sh /usr/local/bin/zcourse

@@ -1,37 +1,11 @@
-import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk'
-import { fileURLToPath } from 'url';
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const userAccountDir =   path.join(__dirname, '.course_cache','userAccount.json');
-const userAccount = JSON.parse(fs.readFileSync(userAccountDir, 'utf-8'));
-const { username, password } = userAccount;
-const cacheDir = path.join(__dirname, '.course_cache');
-const cacheFile = path.join(cacheDir, 'courses.json');
+import { cacheDir } from './share/reader.js';
+import { login } from './share/login.js';
+
 (async () => {
-    const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-    const page = await browser.newPage();
-    const loginUrl = "https://zjuam.zju.edu.cn/cas/login?service=https%3A%2F%2Fidentity.zju.edu.cn%2Fauth%2Frealms%2Fzju%2Fbroker%2Fcas-client%2Fendpoint?state%3DEWAcKAP4o8PN5h3-2wqi2rldugynbh_l1kgAT_Z9QwQ.3OZB_d7BIU8.TronClass#/";
-
-    console.log(chalk.blue('Logging in...'));
-    await page.goto(loginUrl);
-
-    // 模拟输入用户名和密码
-    await page.type('#username', username);
-    await page.type('#password', password);
-
-    // 模拟点击登录按钮
-    await page.click('#dl');
-
-    // 等待导航完成
-    await page.waitForNavigation();
-    await page.waitForSelector('#userId');
-    console.log(chalk.green('Login has succeeded!'));
-
+    const { page, browser } = await login();
     let allCourses = [];
     let pageIndex = 1;
 
@@ -70,7 +44,7 @@ const cacheFile = path.join(cacheDir, 'courses.json');
 
         // 检查是否已经到达最后一页
         const currentUrl = page.url();
-        console.log(chalk.blue(`GotUrl: ${currentUrl}`));
+        console.log(chalk.blue(`HitUrl: ${currentUrl}`));
         if (currentUrl !== pageUrl) {
             break;
         }
@@ -86,10 +60,8 @@ const cacheFile = path.join(cacheDir, 'courses.json');
 
     console.log(chalk.green('Upgrade has completed successfully!'));
     // 保存课程信息到缓存文件
-    if (!fs.existsSync(cacheDir)) {
-        fs.mkdirSync(cacheDir);
-    }
-    fs.writeFileSync(cacheFile, JSON.stringify(allCourses, null, 2));
+
+    fs.writeFileSync(path.join(cacheDir, 'courses.json'), JSON.stringify(allCourses, null, 2));
 
     await browser.close();
 })();

@@ -2,25 +2,13 @@ import fs from 'fs';
 import path from 'path';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
-import { fileURLToPath } from 'url';
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// const __dirname = path.resolve();
-const cacheDir = path.join(__dirname, '.course_cache');
-console.log(__dirname)
-const cacheFile = path.join(cacheDir, 'courses.json');
-const configFile = path.join(cacheDir, 'courseConfig.json');
-
+import { cacheDir, readAllConfigs } from './share/reader.js';
+const { courses } = readAllConfigs();
+const courseConfigFile = path.join(cacheDir, 'courseConfig.json');
 async function config() {
-    if (!fs.existsSync(cacheFile)) {
-        console.log('No cache found. Please run zcourse --upgrade first.');
-        return;
-    }
-
-    const data = fs.readFileSync(cacheFile);
-    const allCourses = JSON.parse(data);
 
     // 获取所有学期
-    const semesters = [...new Set(allCourses.map(course => course.semester))];
+    const semesters = [...new Set(courses.map(course => course.semester))];
 
     // 让用户选择学期（多选）
     const semesterAnswers = await inquirer.prompt([
@@ -34,10 +22,10 @@ async function config() {
 
     const selectedSemesters = semesterAnswers.selectedSemesters;
 
-    const config = {};
+    const courseConfig = {};
     for (const semester of selectedSemesters) {
         // 获取该学期的所有课程
-        const coursesInSemester = allCourses.filter(course => course.semester === semester);
+        const coursesInSemester = courses.filter(course => course.semester === semester);
 
         // 让用户选择需要的课程（多选）
         const courseAnswers = await inquirer.prompt([
@@ -52,15 +40,15 @@ async function config() {
         const selectedCourseNames = courseAnswers.selectedCourses;
 
         // 将用户的选择按学期分类，并写入 {name, link}
-        config[semester] = selectedCourseNames.map(courseName => {
+        courseConfig[semester] = selectedCourseNames.map(courseName => {
             const course = coursesInSemester.find(course => course.name === courseName);
             return { name: course.name, link: course.link };
         });
     }
 
     // 将用户的选择写入 .course_config.json 文件
-    fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
-    console.log(chalk.green(`用户选择已保存到 ${configFile}`));
+    fs.writeFileSync(courseConfigFile, JSON.stringify(courseConfig, null, 2));
+    console.log(chalk.green(`用户选择已保存到 ${courseConfigFile}`));
 }
 
 // 调用函数
